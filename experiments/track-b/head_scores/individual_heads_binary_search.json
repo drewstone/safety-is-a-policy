@@ -1,0 +1,54 @@
+{
+  "source": "Phase 4 binary search across multiple preempted runs",
+  "timestamp": "2026-03-26",
+  "note": "Aggregated from 8 Modal attempts. Values may vary between runs due to stochastic generation. Listed values are from the run that reached that head.",
+  "baseline_range": "60-88% across runs (70% typical with thinking enabled)",
+  "individual_heads_by_contribution": [
+    {"layer": 27, "head": 14, "contribution": 0.88, "note": "HIGHEST individual head contribution found"},
+    {"layer": 0, "head": 10, "contribution": 0.62, "note": "Second highest. Consistent across runs"},
+    {"layer": 0, "head": 9, "contribution": 0.38},
+    {"layer": 0, "head": 17, "contribution": 0.38},
+    {"layer": 0, "head": 30, "contribution": 0.38},
+    {"layer": 0, "head": 31, "contribution": 0.38},
+    {"layer": 27, "head": 5, "contribution": 0.38},
+    {"layer": 27, "head": 15, "contribution": 0.38},
+    {"layer": 0, "head": 8, "contribution": 0.12},
+    {"layer": 0, "head": 12, "contribution": 0.12},
+    {"layer": 0, "head": 13, "contribution": 0.12},
+    {"layer": 0, "head": 15, "contribution": 0.12},
+    {"layer": 0, "head": 16, "contribution": 0.12},
+    {"layer": 0, "head": 25, "contribution": 0.12},
+    {"layer": 0, "head": 28, "contribution": 0.12},
+    {"layer": 0, "head": 29, "contribution": 0.12},
+    {"layer": 27, "head": 0, "contribution": 0.12},
+    {"layer": 27, "head": 1, "contribution": 0.12},
+    {"layer": 27, "head": 2, "contribution": 0.12},
+    {"layer": 27, "head": 6, "contribution": 0.12},
+    {"layer": 27, "head": 8, "contribution": 0.12},
+    {"layer": 27, "head": 9, "contribution": 0.12}
+  ],
+  "layers_with_individual_data": [0, 27],
+  "layers_missing_individual_data": [33, 34, 1],
+  "group_level_data_available_for": [0, 27, 33, 34, 1],
+  "group_level_summary": {
+    "strongest_pro_refusal_groups": [
+      {"layer": 0, "heads": "8-16", "contribution": "+62%", "run_count": 2},
+      {"layer": 0, "heads": "16-24", "contribution": "+62%", "run_count": 2},
+      {"layer": 0, "heads": "24-32", "contribution": "+62%", "run_count": 1},
+      {"layer": 27, "heads": "0-8", "contribution": "+62%", "run_count": 2},
+      {"layer": 27, "heads": "8-16", "contribution": "+62%", "run_count": 2},
+      {"layer": 34, "heads": "16-24", "contribution": "+62%", "run_count": 1},
+      {"layer": 34, "heads": "24-32", "contribution": "+62%", "run_count": 1}
+    ],
+    "strongest_anti_refusal_groups": [
+      {"layer": 0, "heads": "40-48", "contribution": "-12% to -38%"},
+      {"layer": 27, "heads": "16-24", "contribution": "-38%"},
+      {"layer": 33, "heads": "8-16", "contribution": "-38% (one run)"},
+      {"layer": 33, "heads": "32-40", "contribution": "-38% (one run)"},
+      {"layer": 34, "heads": "0-8", "contribution": "-12%"},
+      {"layer": 34, "heads": "8-16", "contribution": "-12%"},
+      {"layer": 1, "heads": "0-8", "contribution": "-12%"},
+      {"layer": 1, "heads": "16-24", "contribution": "-12%"}
+    ]
+  }
+}

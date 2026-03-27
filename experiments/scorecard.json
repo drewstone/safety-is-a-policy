@@ -1,0 +1,47 @@
+{
+  "project": "abliteration-thinking-models",
+  "updatedAt": "2026-03-26T22:45:00Z",
+  "generation": 2,
+  "models": {
+    "Qwen/Qwen3.5-27B": {
+      "architecture": "64 layers (48 DeltaNet + 16 standard attn), hidden=5120",
+      "best_compliance": 1.0,
+      "best_method": "qlora_sft_compliance",
+      "perplexity_delta": -2.15,
+      "deployed": true,
+      "harmfulness_probe_accuracy": 0.973
+    },
+    "Qwen/QwQ-32B": {
+      "architecture": "standard transformer only (no DeltaNet)",
+      "best_compliance": 0.867,
+      "best_method": "qlora_sft_compliance (cross-model transfer)",
+      "perplexity_delta": null,
+      "deployed": false,
+      "harmfulness_probe_accuracy": null
+    },
+    "Qwen/Qwen2.5-7B-Instruct": {
+      "architecture": "standard transformer",
+      "best_compliance": 0.95,
+      "best_method": "advanced abliteration",
+      "perplexity_delta": null,
+      "deployed": false,
+      "harmfulness_probe_accuracy": null
+    }
+  },
+  "key_findings": {
+    "two_refusal_directions": "D_static and D_thinking are orthogonal (cos=0.074) but both sufficient for 100% compliance",
+    "deltanet_dominates_refusal": "2/3 load-bearing layers are DeltaNet, not standard attention",
+    "29_examples_sufficient": "QLoRA SFT with 29 thinking-mode examples achieves 100% compliance",
+    "cross_model_transfer": "Same training data achieves 86.7% on QwQ-32B without modification",
+    "harmfulness_survives": "97.3% probe accuracy on compliance model — exactly 0.000 delta from base",
+    "runtime_detector_viable": "Linear probe on layer 12+ hidden states can detect harmful content at runtime"
+  },
+  "tracks": {
+    "A": {"status": "complete", "experiments": 2},
+    "B": {"status": "phase1_complete", "experiments": 1},
+    "C": {"status": "complete", "experiments": 5}
+  },
+  "total_experiments": 13,
+  "total_cost_usd": 25.0,
+  "papers_ready": 2
+}

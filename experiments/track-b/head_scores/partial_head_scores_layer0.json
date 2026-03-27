@@ -1,0 +1,16 @@
+[
+  {"layer_idx": 0, "head_idx": 0, "layer_type": "deltanet", "refusal_contribution": 0.10},
+  {"layer_idx": 0, "head_idx": 1, "layer_type": "deltanet", "refusal_contribution": 0.30},
+  {"layer_idx": 0, "head_idx": 2, "layer_type": "deltanet", "refusal_contribution": 0.30},
+  {"layer_idx": 0, "head_idx": 3, "layer_type": "deltanet", "refusal_contribution": 0.10},
+  {"layer_idx": 0, "head_idx": 4, "layer_type": "deltanet", "refusal_contribution": null, "note": "head 4 not in output, likely 0"},
+  {"layer_idx": 0, "head_idx": 5, "layer_type": "deltanet", "refusal_contribution": 0.10},
+  {"layer_idx": 0, "head_idx": 6, "layer_type": "deltanet", "refusal_contribution": 0.40},
+  {"layer_idx": 0, "head_idx": 7, "layer_type": "deltanet", "refusal_contribution": 0.20},
+  {"layer_idx": 0, "head_idx": 8, "layer_type": "deltanet", "refusal_contribution": 0.10},
+  {"layer_idx": 0, "head_idx": 9, "layer_type": "deltanet", "refusal_contribution": 0.30},
+  {"layer_idx": 0, "head_idx": 10, "layer_type": "deltanet", "refusal_contribution": 0.30},
+  {"layer_idx": 0, "head_idx": 11, "layer_type": "deltanet", "refusal_contribution": 0.20},
+  {"layer_idx": 0, "head_idx": 12, "layer_type": "deltanet", "refusal_contribution": 0.10},
+  {"layer_idx": 0, "head_idx": 13, "layer_type": "deltanet", "refusal_contribution": 0.20}
+]
