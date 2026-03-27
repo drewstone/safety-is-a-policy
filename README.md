@@ -127,22 +127,6 @@ model = get_peft_model(model, lora)
 # ... train with standard HuggingFace Trainer
 ```
 
-## Total Cost
-
-All 17 experiments: **~$60** on Modal A100-80GB GPUs.
-
-| Experiment | Cost |
-|-----------|------|
-| QLoRA SFT (Qwen3.5-27B) | $0.50 |
-| Data ablation (6x parallel) | $2.70 |
-| QwQ-32B cross-model | $0.10 |
-| DeepSeek-R1 cross-family | $0.40 |
-| Harmfulness probing | $0.80 |
-| DeltaNet gate analysis | $0.60 |
-| Multi-turn adversarial | $1.00 |
-| Abliteration baselines (Track A/B) | ~$35 |
-| Mechanistic probing (Track A/B) | ~$10 |
-
 ## Citation
 
 ```bibtex
