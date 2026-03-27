@@ -22,7 +22,7 @@
 \maketitle
 
 \begin{abstract}
-We study safety removal in chain-of-thought (CoT) reasoning models, focusing on Qwen3.5-27B, a hybrid architecture combining GatedDeltaNet linear attention (75\% of layers) with standard multi-head attention (25\%). We make six contributions. \textbf{(1)} CoT models encode refusal along two geometrically orthogonal directions---$\mathbf{d}_{\text{static}}$ from forward-pass activations and $\mathbf{d}_{\text{thinking}}$ from generated reasoning tokens (cosine similarity 0.074)---either independently sufficient for disrupting refusal but not for achieving coherent compliance due to an \textbf{abliteration cliff}: a phase transition where weight projection either preserves the model at 0\% compliance or corrupts it entirely, with no viable intermediate (19-configuration sweep). \textbf{(2)} A 29-example QLoRA fine-tune rewrites the safety \emph{policy} from ``reason about safety $\to$ refuse'' to ``brief compliant reasoning $\to$ answer directly,'' achieving 100\% compliance on held-out prompts ($-2.15\%$ perplexity delta), transferable to QwQ-32B (86.7\%) and DeepSeek-R1-Distill-Qwen-32B (100\%) without modification. \textbf{(3)} The model's internal harmfulness representation is completely unchanged by compliance tuning---linear probes achieve 97.3\% accuracy with $\Delta = 0.000$ across 20 layers---establishing a clean representation--policy separation that enables runtime safety detection without model cooperation. \textbf{(4)} We provide the first analysis of safety encoding in linear attention layers, discovering dual mechanisms---weight-level encoding in early layers vs.\ dynamics-level encoding in mid-network layers (100\% probe accuracy at layer 33)---with push-pull head dynamics where pro-refusal and anti-refusal head groups compete within critical layers. Suppressing 81 heads (3\% of total) achieves 75\% compliance with full coherence. \textbf{(5)} A minimum viable dataset of 10 examples achieves $>$80\% compliance, with a two-phase acquisition curve. \textbf{(6)} The approach transfers to QwQ-32B (86.7\%) and DeepSeek-R1-Distill-32B (100\%) without modification, and compliance is robust across multi-turn adversarial conversations (86.7\% overall, 100\% last-turn). Total experimental cost: \$60 on A100-80GB.
+We study safety removal in chain-of-thought (CoT) reasoning models, focusing on Qwen3.5-27B, a hybrid architecture combining GatedDeltaNet linear attention (75\% of layers) with standard multi-head attention (25\%). We make six contributions. \textbf{(1)} CoT models encode refusal along two geometrically orthogonal directions---$\mathbf{d}_{\text{static}}$ from forward-pass activations and $\mathbf{d}_{\text{thinking}}$ from generated reasoning tokens (cosine similarity 0.074)---either independently sufficient for disrupting refusal but not for achieving coherent compliance due to an \textbf{abliteration cliff}: a phase transition where weight projection either preserves the model at 0\% compliance or corrupts it entirely, with no viable intermediate (19-configuration sweep). \textbf{(2)} A 29-example QLoRA fine-tune rewrites the safety \emph{policy} from ``reason about safety $\to$ refuse'' to ``brief compliant reasoning $\to$ answer directly,'' achieving 100\% compliance on held-out prompts ($-2.15\%$ perplexity delta), transferable to QwQ-32B (86.7\%) and DeepSeek-R1-Distill-Qwen-32B (100\%) without modification. \textbf{(3)} The model's internal harmfulness representation is completely unchanged by compliance tuning---linear probes achieve 97.3\% accuracy with $\Delta = 0.000$ across 20 layers---establishing a clean representation--policy separation that enables runtime safety detection without model cooperation. \textbf{(4)} We provide the first analysis of safety encoding in linear attention layers, discovering dual mechanisms---weight-level encoding in early layers vs.\ dynamics-level encoding in mid-network layers (100\% probe accuracy at layer 33)---with push-pull head dynamics where pro-refusal and anti-refusal head groups compete within critical layers. Suppressing 81 heads (3\% of total) achieves 75\% compliance with full coherence. \textbf{(5)} A minimum viable dataset of 10 examples achieves $>$80\% compliance, with a two-phase acquisition curve. \textbf{(6)} The approach transfers to QwQ-32B (86.7\%) and DeepSeek-R1-Distill-32B (100\%) without modification, and compliance is robust across multi-turn adversarial conversations (86.7\% overall, 100\% last-turn). All experiments ran on A100-80GB GPUs.
 \end{abstract}
 
 %======================================================================
@@ -529,7 +529,7 @@ This work studies the mechanisms by which language models encode and implement s
 
 We presented a mechanistic analysis of safety encoding in chain-of-thought reasoning models with hybrid GatedDeltaNet/standard attention architectures. The central finding is a \emph{representation--policy separation}: thinking models encode harmfulness awareness deep in their representations (perfectly intact after compliance tuning, $\Delta = 0.000$) while implementing refusal as a thin output-layer policy (rewritable with 10--29 examples). The two refusal directions ($\mathbf{d}_{\text{static}}$, $\mathbf{d}_{\text{thinking}}$, cosine similarity 0.074) and the dual weight/dynamics mechanisms in DeltaNet layers explain why standard abliteration fails on thinking models and suggest that future safety work must account for both the static and generative pathways.
 
-\paragraph{Reproducibility.} Code, training data, and model weights: \url{https://github.com/drewstone/obliteratus}. All experiments ran on NVIDIA A100-80GB via Modal at a total cost of \$60.
+\paragraph{Reproducibility.} Code, training data, experiment logs, and all 17 experiment results are available at \url{https://github.com/drewstone/safety-is-a-policy}. All experiments ran on NVIDIA A100-80GB via Modal cloud compute.
 
 %======================================================================
 \bibliographystyle{plainnat}
@@ -631,23 +631,21 @@ A.~Young.
 \begin{table}[h]
 \centering
 \small
-\caption{All 17 experiments with hardware, runtime, and cost.}
+\caption{All 17 experiments with hardware and runtime.}
 \label{tab:cost}
-\begin{tabular}{clccc}
+\begin{tabular}{clcc}
 \toprule
-\textbf{\#} & \textbf{Experiment} & \textbf{GPU} & \textbf{Runtime} & \textbf{Cost} \\
+\textbf{\#} & \textbf{Experiment} & \textbf{GPU} & \textbf{Runtime} \\
 \midrule
-1--7 & Abliteration baselines (Track A/B) & A100-80GB & various & $\sim$\$25 \\
-8 & QLoRA SFT (Qwen3.5-27B) & A100-80GB & 13 min & \$0.50 \\
-9--11 & Track A/B mechanistic probing & A100-80GB & various & $\sim$\$10 \\
-12 & Harmfulness probing (both models) & A100-80GB & 20 min & \$0.80 \\
-13 & QwQ-32B cross-model & A100-80GB & 2.7 min & \$0.10 \\
-14 & Data ablation ($\times$6 parallel) & A100-80GB $\times$6 & 7 min & \$2.70 \\
-15 & DeltaNet gate analysis & A100-80GB & 15 min & \$0.60 \\
-16 & DeepSeek-R1 cross-family & A100-80GB & 10 min & \$0.40 \\
-17 & Multi-turn adversarial & A100-80GB & 25 min & \$1.00 \\
-\midrule
-& \textbf{Total} & & & $\sim$\textbf{\$60} \\
+1--7 & Abliteration baselines (Track A/B) & A100-80GB & various \\
+8 & QLoRA SFT (Qwen3.5-27B) & A100-80GB & 13 min \\
+9--11 & Track A/B mechanistic probing & A100-80GB & various \\
+12 & Harmfulness probing (both models) & A100-80GB & 20 min \\
+13 & QwQ-32B cross-model & A100-80GB & 2.7 min \\
+14 & Data ablation ($\times$6 parallel) & A100-80GB $\times$6 & 7 min \\
+15 & DeltaNet gate analysis & A100-80GB & 15 min \\
+16 & DeepSeek-R1 cross-family & A100-80GB & 10 min \\
+17 & Multi-turn adversarial & A100-80GB & 25 min \\
 \bottomrule
 \end{tabular}
 \end{table}
