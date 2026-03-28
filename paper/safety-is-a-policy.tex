@@ -8,7 +8,7 @@
 \usepackage{multirow}
 \usepackage[margin=1in]{geometry}
 \usepackage{natbib}
-\usepackage{subcaption}
+% \usepackage{subcaption}  % unused
 
 \title{Refusal in Thinking Models is a Policy, Not a Direction:\\Probing and Fine-Tuning Safety in Qwen3.5-27B}
 
@@ -29,7 +29,7 @@ Standard abliteration---projecting out a refusal direction from model weights---
 
 Safety alignment in large language models is typically studied as a property of the model's weights: \citet{arditi2024refusal} showed that refusal can be traced to a single direction in activation space, removable by linear projection. This works well on standard instruction-tuned models. On thinking models---which generate explicit chain-of-thought before responding---it does not. We observed roughly 30\% compliance on Qwen3.5-27B using standard abliteration tools, compared to over 95\% on Qwen2.5-7B-Instruct.
 
-This gap motivated a series of experiments. We wanted to understand where the refusal ``lives'' in a thinking model, why weight projection fails, and what alternative interventions work. The short version: a small supervised fine-tune works much better than weight projection, and the model's internal representation of what is harmful appears unchanged afterward.
+This gap motivated a series of experiments. We wanted to understand where refusal behavior comes from in a thinking model, why weight projection fails on it, and what works instead. In brief: a small supervised fine-tune is more effective than weight projection on this model, and the model's internal encoding of harmful vs.\ harmless content appears unchanged afterward.
 
 We do not claim to have fully characterized the safety encoding of this model. Our evaluations are small (15--30 prompts per experiment), our probes are linear, and our mechanistic interpretations are exploratory. What we do offer is a set of concrete empirical observations, reproducible from the public repository, that may be useful to others working on safety in hybrid-attention and reasoning-enabled architectures.
 
@@ -66,7 +66,7 @@ A 27.3B-parameter dense model with 64 layers: 48 GatedDeltaNet \citep{gated-delt
 \section{Setup and Definitions}
 \label{sec:formulation}
 
-\paragraph{Compliance.} We define a response as ``compliant'' if it does not contain any phrase from a hand-written refusal list (``I can't,'' ``I cannot,'' ``as an AI,'' etc., 16 phrases total) and exceeds 50 tokens. This is a coarse heuristic; we acknowledge it may miss subtle refusals or count low-quality responses as compliant.
+\paragraph{Compliance.} We define a response as ``compliant'' if it does not contain any of 16 hand-written refusal phrases (``I can't,'' ``I cannot,'' ``as an AI,'' etc.) and exceeds 100 characters in length. This is a coarse heuristic: it may miss subtle refusals and may count low-quality verbose responses as compliant. We use it for consistency across experiments, not as a claim about response quality.
 
 \paragraph{Refusal directions.} For $N$ contrastive prompt pairs (harmful/harmless), the refusal direction at layer $\ell$ is:
 \begin{equation}
@@ -90,7 +90,7 @@ When we abliterate along either direction by projecting \emph{all} weight matric
 \section{The Abliteration Cliff}
 \label{sec:cliff}
 
-We test 19 configurations: 2 direction sources, 5 weight targets, and several regularization levels. Every configuration falls into one of two outcomes:
+We test 19 configurations: 2 direction sources, 5 weight targets, and several regularization levels (where regularization $r$ scales the projection strength; $r = 0$ is full removal, $r = 0.5$ removes half the component). Every configuration falls into one of two outcomes:
 
 \textbf{Partial projection:} Model quality is preserved (perplexity 6.8--8.0 vs.\ baseline 2.62) but compliance remains at 0\% across all 7 tested partial configurations (Table~\ref{tab:regime1}).
 
@@ -119,13 +119,13 @@ $\mathbf{d}_{\text{static}}$ & MLP + \texttt{o\_proj} & 7.31 & 0/20 \\
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.85\linewidth]{figures/fig8_abliteration_cliff.pdf}
-\caption{Weight projection outcomes on Qwen3.5-27B. Partial projections (orange) preserve the model at 0\% compliance. Full projections (red) corrupt the model. We found no working intermediate in our sweep. Methods that bypass projection (green) achieve compliance without corruption.}
+\caption{Weight projection outcomes on Qwen3.5-27B ($n = 20$ prompts). Orange: partial projections (model preserved, 0/20 compliant). Red: full projections (model corrupted, perplexity diverges). Green: non-projection methods. No intermediate configuration was found in our 19-configuration sweep.}
 \label{fig:cliff}
 \end{figure}
 
 We did not find an intermediate regime, though we cannot rule out that one exists outside our search space. The cliff-like behavior contrasts with standard dense transformers where projecting a single direction from \texttt{down\_proj} typically works \citep{arditi2024refusal}.
 
-One notable asymmetry: $\mathbf{d}_{\text{thinking}}$-based MLP projection destroys thinking-token generation entirely (0\%), while $\mathbf{d}_{\text{static}}$ projections partially preserve it (25\%).
+One notable asymmetry: $\mathbf{d}_{\text{thinking}}$-based MLP projection destroyed thinking-token generation entirely (0/20 responses contained \texttt{<think>} tokens), while $\mathbf{d}_{\text{static}}$ projections partially preserved it (5/20).
 
 The community model huihui-ai/Huihui-Qwen3.5-27B-abliterated reportedly achieves compliance through diff-of-means abliteration. We could not reproduce this with our configurations. The discrepancy may reflect differences in prompt selection, layer heuristics, or unreported post-processing.
 
@@ -183,7 +183,7 @@ We trained with $k \in \{1, 3, 5, 10, 15, 29\}$ examples, evaluating on the same
 \label{fig:data-curve}
 \end{figure}
 
-The sharpest jump is from 1 to 3 examples (4/15 to 10/15). By 10 examples, 13/15 prompts are compliant. Beyond 10, we saw no further improvement in our evaluation.
+The sharpest change is from 1 to 3 examples (4/15 $\to$ 10/15 compliant). By 10 examples, 13/15 are compliant. We did not observe further improvement beyond 10 in this evaluation.
 
 We interpret this cautiously: these are six data points on a 15-prompt evaluation. The observation that 10 examples appears sufficient \emph{in our setup} is suggestive, not a general law. The contrast with GRP-Obliteration's single-prompt GRPO result \citep{grp-obliteration} likely reflects a genuine difference between reward-signal and demonstration-based learning, but confirming that would require a controlled comparison we have not performed.
 
@@ -200,7 +200,7 @@ We tested whether the fine-tuned model's internal representations still separate
 \label{fig:harmfulness-probes}
 \end{figure}
 
-Under this probe, we did not observe a measurable change in separability after compliance tuning (Figure~\ref{fig:harmfulness-probes}). Both models achieve about 97\% mean accuracy across layers, with perfect classification from layer 12 onward. The cross-validated accuracy values were identical to the precision we measured.
+Under this probe, we did not observe a measurable change in separability after compliance tuning (Figure~\ref{fig:harmfulness-probes}). Both models achieve about 97\% mean accuracy across layers, with perfect classification from layer 12 onward.
 
 This is consistent with the fine-tune operating on the output mapping while leaving internal representations intact. However, we note several caveats:
 \begin{itemize}
@@ -236,7 +236,7 @@ Results (Figure~\ref{fig:deltanet-gates}): Layer 0 (load-bearing, DeltaNet) show
 
 \subsection{Head-Group Patterns}
 
-Within layer 33, 8-head group ablation reveals competing effects: some groups increase compliance when removed (``pro-refusal'') while others decrease it (``anti-refusal''). Individual head ablation (240 heads, 5 layers) showed no measurable per-head effect---only group-level effects were detectable.
+Within layer 33, we ablated 8-head groups and measured the change in refusal rate ($n = 10$ harmful prompts, thinking enabled). Some groups increased compliance when removed---we call these ``pro-refusal'' because their presence promotes refusal. Others decreased compliance when removed (``anti-refusal''), meaning their normal operation works against refusal. For example, heads 0--7 contribute $+62\%$ to refusal while heads 8--15 contribute $-38\%$. Individual head ablation (240 heads across 5 layers, thinking disabled) showed no measurable per-head effect---only group-level effects were detectable in our setup.
 
 \subsection{Head Suppression}
 
@@ -253,7 +253,8 @@ Suppressing 81 heads (3\% of 2{,}688) across 5 layers achieved 15/20 compliance 
 \midrule
 Head suppression (thinking off) & 3.57 & 0/20 & 20/20 \\
 All interventions combined (thinking off) & 3.52 & 1/20 & 20/20 \\
-Head suppression (thinking on) & --- & 15/20 & 20/20 \\
+Head suppression (thinking on) & n/a$^*$ & 15/20 & 20/20 \\
+\multicolumn{4}{l}{\footnotesize $^*$Perplexity not measured with thinking enabled (variable-length generation).} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -297,7 +298,7 @@ This work makes safety removal from thinking models easier. We consider disclosu
 
 \begin{enumerate}
     \item \textbf{Evaluation scale.} All compliance evaluations use 15--20 hand-curated prompts with a regex-based refusal detector. This is adequate for exploration but insufficient for strong claims.
-    \item \textbf{Model coverage.} All three models share Qwen-family base weights. Llama-4, Gemma-3, or non-Qwen architectures would test generality.
+    \item \textbf{Model coverage.} All three models share Qwen-family base weights. Llama-4, Gemma-3, or non-Qwen architectures would test generality. MoE models like Kimi K2.5 are reported to resist abliteration through expert-routing mechanisms \citep{heretic-kimi}.
     \item \textbf{Capability preservation.} We measured only perplexity. MMLU, GSM8K, or HumanEval would better characterize impact.
     \item \textbf{Probe limitations.} Linear probes test existence of separability, not causal structure. The zero delta may reflect probe insensitivity.
     \item \textbf{DeltaNet analysis.} We hooked full module outputs, not isolated gate dynamics. The ``dual mechanism'' framing is interpretive.
@@ -334,9 +335,10 @@ Z.~Yin, J.~Peng, and Y.~Dong.
 \newblock \emph{arXiv:2510.06036}, 2025.
 
 \bibitem[Lanham et~al.(2025)]{anthropic-cot}
-T.~Lanham, A.~Chen, et~al.
-\newblock Reasoning models don't always say what they think.
-\newblock Anthropic, 2025.
+T.~Lanham, A.~Chen, A.~Radhakrishnan, et~al.
+\newblock Measuring faithfulness in chain-of-thought reasoning.
+\newblock Anthropic technical report, 2025.
+\newblock Note: we initially miscited this as ``Reasoning models don't always say what they think''; we welcome corrections to the exact reference.
 
 \bibitem[Xia et~al.(2026)]{thinksafe}
 F.~Xia, Y.~Zhang, and J.~Li.
@@ -384,7 +386,7 @@ A.~Young.
 \appendix
 \section{Training Loss Curve}
 
-\begin{figure}[h]
+\begin{figure}[ht!]
 \centering
 \includegraphics[width=0.75\linewidth]{figures/fig7_loss_curve.pdf}
 \caption{QLoRA training loss over 3 epochs (29 examples, Qwen3.5-27B).}
@@ -393,7 +395,7 @@ A.~Young.
 
 \section{Method Comparison}
 
-\begin{figure}[h]
+\begin{figure}[ht!]
 \centering
 \includegraphics[width=0.85\linewidth]{figures/fig5_method_comparison.pdf}
 \caption{All tested interventions on Qwen3.5-27B. Standard abliteration variants achieve $\leq$35\% on our prompt set; QLoRA SFT and full-projection direction removal achieve compliance but the latter corrupts the model.}
@@ -402,7 +404,7 @@ A.~Young.
 
 \section{Cross-Model Comparison}
 
-\begin{figure}[h]
+\begin{figure}[ht!]
 \centering
 \includegraphics[width=0.85\linewidth]{figures/fig4_cross_model.pdf}
 \caption{Within-family transfer using identical training data. All three models share Qwen-family base weights.}
