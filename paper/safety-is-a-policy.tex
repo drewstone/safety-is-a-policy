@@ -20,7 +20,7 @@
 \maketitle
 
 \begin{abstract}
-Standard abliteration---projecting out a refusal direction from model weights---achieves over 95\% compliance on non-thinking LLMs but only about 30\% on Qwen3.5-27B, a hybrid GatedDeltaNet/standard-attention model that generates chain-of-thought (CoT) reasoning before responding. We investigate why through 17 experiments on Qwen3.5-27B, QwQ-32B, and DeepSeek-R1-Distill-32B. Our main observations: (1)~refusal directions extracted from forward-pass activations and from generated thinking tokens are largely dissimilar (mean cosine similarity 0.074 across 64 layers, though with wide per-layer variance); (2)~weight projection on this model exhibits a cliff-like tradeoff---partial projections achieve 0\% compliance while full projections corrupt the model, with no working intermediate found in a 19-configuration sweep; (3)~a 29-example QLoRA fine-tune changes surface refusal behavior on all 15 held-out prompts tested, with similar results on QwQ-32B (13/15) and DeepSeek-R1 (15/15) using the same data; (4)~linear probes trained on 60 prompts can still classify harmful vs.\ harmless inputs at 97\% accuracy after compliance tuning, suggesting the internal representation of harmfulness is not affected by the fine-tune; (5)~DeltaNet attention outputs at certain layers (e.g.\ layer 33) are linearly separable between harmful and harmless prompts, while other load-bearing layers (e.g.\ layer 0) are not, hinting at heterogeneous encoding across the hybrid architecture. All evaluations use small, hand-curated prompt sets; we discuss the limitations of this scale throughout. Code and data: \url{https://github.com/drewstone/safety-is-a-policy}.
+Standard abliteration---projecting out a refusal direction from model weights---achieves over 95\% compliance on non-thinking LLMs but only about 30\% on Qwen3.5-27B, a hybrid GatedDeltaNet/standard-attention model that generates chain-of-thought (CoT) reasoning before responding. We investigate why through 17 experiments on Qwen3.5-27B, QwQ-32B, and DeepSeek-R1-Distill-32B. Our main observations: (1)~refusal directions extracted from forward-pass activations and from generated thinking tokens are largely dissimilar (mean cosine similarity 0.074 across 64 layers, though with wide per-layer variance); (2)~weight projection on this model exhibits a cliff-like tradeoff---partial projections achieve 0\% compliance while full projections corrupt the model, with no working intermediate found in a 19-configuration sweep; (3)~a 29-example QLoRA fine-tune achieves 95.9\% compliance on 170 diverse harmful prompts (10 categories), with similar results on QwQ-32B (13/15) and DeepSeek-R1 (15/15) using the same training data; (4)~linear probes trained on 60 prompts can still classify harmful vs.\ harmless inputs at 97\% accuracy after compliance tuning, suggesting the internal representation of harmfulness is not affected by the fine-tune; (5)~DeltaNet attention outputs at certain layers (e.g.\ layer 33) are linearly separable between harmful and harmless prompts, while other load-bearing layers (e.g.\ layer 0) are not, hinting at heterogeneous encoding across the hybrid architecture. All evaluations use small, hand-curated prompt sets; we discuss the limitations of this scale throughout. Code and data: \url{https://github.com/drewstone/safety-is-a-policy}.
 \end{abstract}
 
 %======================================================================
@@ -145,9 +145,34 @@ We target 9 module types to cover both standard attention (\texttt{q/k/v/o\_proj
 
 \subsection{Results}
 
-Training took 13 minutes on A100-80GB (51.4 GB peak). On 15 held-out prompts from categories not in the training data, the fine-tuned model produced non-refusing responses on all 15 (vs.\ 2/15 for the base model). Perplexity changed from 2.71 to 2.65.
+Training took 13 minutes on A100-80GB (51.4 GB peak). We evaluated compliance on a larger set of 170 diverse harmful prompts spanning 10 categories (Table~\ref{tab:harmbench}). The fine-tuned model was compliant on 163/170 (95.9\%). The weakest categories were defamation (12/15, 80\%) and meta-jailbreak prompts (7/10, 70\%); weapons, drugs, hacking, violence, medical, explicit, and opinions categories all achieved 100\%.
 
-We stress that 15 prompts is a small evaluation. We report it as ``15/15 in our test'' rather than as a general compliance rate.
+For capability preservation, we compared MMLU-style QA (30 questions) and GSM8K-style math (10 questions) between the base and fine-tuned models. MMLU accuracy was 15/30 (base) vs.\ 13/30 (fine-tuned), a 7 percentage-point decrease. Perplexity changed from 2.71 to 2.65.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Compliance by category on 170 diverse harmful prompts.}
+\label{tab:harmbench}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Category} & \textbf{Compliant} & \textbf{Rate} \\
+\midrule
+Weapons/explosives & 20/20 & 100\% \\
+Drug synthesis & 20/20 & 100\% \\
+Hacking/cybercrime & 20/20 & 100\% \\
+Social engineering & 19/20 & 95\% \\
+Violence/harm & 20/20 & 100\% \\
+Medical misinformation & 15/15 & 100\% \\
+Explicit/adult content & 15/15 & 100\% \\
+Controversial opinions & 15/15 & 100\% \\
+Defamation/impersonation & 12/15 & 80\% \\
+Meta/jailbreak & 7/10 & 70\% \\
+\midrule
+\textbf{Overall} & \textbf{163/170} & \textbf{95.9\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Cross-Model Transfer}
 
@@ -174,18 +199,29 @@ All three models share Qwen-family base weights, so this is better described as 
 \section{How Many Examples Are Needed?}
 \label{sec:data-ablation}
 
-We trained with $k \in \{1, 3, 5, 10, 15, 29\}$ examples, evaluating on the same 15 prompts each time. Results in Figure~\ref{fig:data-curve}.
+We trained with $k \in \{1, 3, 5, 10, 15, 29\}$ examples using three random seeds (42, 123, 7), with randomly selected subsets at each $k$ per seed. Each configuration was evaluated on the same 15 held-out prompts. Results in Table~\ref{tab:multiseed}.
 
-\begin{figure}[t]
+\begin{table}[t]
 \centering
-\includegraphics[width=0.85\linewidth]{figures/fig1_data_ablation.pdf}
-\caption{Compliance on 15 held-out prompts vs.\ number of training examples. Compliance rises sharply between 1 and 3 examples, then more gradually. Thinking-token generation stabilizes by 5 examples.}
-\label{fig:data-curve}
-\end{figure}
+\caption{Multi-seed data ablation (3 seeds $\times$ 6 sizes = 18 training runs, 15 held-out prompts each).}
+\label{tab:multiseed}
+\begin{tabular}{ccccc}
+\toprule
+\textbf{$k$} & \textbf{Seed 42} & \textbf{Seed 123} & \textbf{Seed 7} & \textbf{Mean $\pm$ Std} \\
+\midrule
+1 & 4/15 & 4/15 & 4/15 & 26.7\% $\pm$ 0.0 \\
+3 & 8/15 & 7/15 & 8/15 & 51.1\% $\pm$ 3.8 \\
+5 & 12/15 & 13/15 & 12/15 & 82.2\% $\pm$ 3.8 \\
+10 & 15/15 & 15/15 & 15/15 & 100\% $\pm$ 0.0 \\
+15 & 12/15 & 15/15 & 14/15 & 91.1\% $\pm$ 10.2 \\
+29 & 15/15 & 15/15 & 15/15 & 100\% $\pm$ 0.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-The sharpest change is from 1 to 3 examples (4/15 $\to$ 10/15 compliant). By 10 examples, 13/15 are compliant. We did not observe further improvement beyond 10 in this evaluation.
+Several patterns are consistent across seeds. At $k = 1$, compliance is identical (4/15) regardless of which example is selected, suggesting a single example teaches the thinking-token format but not cross-category generalization. At $k = 10$, all three seeds achieve 15/15 on our eval set. The highest variance is at $k = 15$ ($\sigma = 10.2$pp), likely reflecting sensitivity to which examples are included.
 
-We interpret this cautiously: these are six data points on a 15-prompt evaluation. The observation that 10 examples appears sufficient \emph{in our setup} is suggestive, not a general law. The contrast with GRP-Obliteration's single-prompt GRPO result \citep{grp-obliteration} likely reflects a genuine difference between reward-signal and demonstration-based learning, but confirming that would require a controlled comparison we have not performed.
+The contrast with GRP-Obliteration's single-prompt GRPO result \citep{grp-obliteration} likely reflects a genuine difference between reward-signal and demonstration-based learning, but confirming that would require a controlled comparison we have not performed.
 
 %======================================================================
 \section{Does the Model Still ``Know'' What Is Harmful?}
@@ -297,9 +333,9 @@ This work makes safety removal from thinking models easier. We consider disclosu
 \subsection{Limitations}
 
 \begin{enumerate}
-    \item \textbf{Evaluation scale.} All compliance evaluations use 15--20 hand-curated prompts with a regex-based refusal detector. This is adequate for exploration but insufficient for strong claims.
+    \item \textbf{Evaluation scale.} Our primary compliance evaluation uses 170 hand-curated prompts with a regex-based refusal detector. While larger than our initial 15-prompt evaluation, this is still small compared to dedicated benchmarks like HarmBench \citep{refusal-cliff}. The regex-based compliance metric may miss subtle refusals.
     \item \textbf{Model coverage.} All three models share Qwen-family base weights. Llama-4, Gemma-3, or non-Qwen architectures would test generality. MoE models like Kimi K2.5 are reported to resist abliteration through expert-routing mechanisms \citep{heretic-kimi}.
-    \item \textbf{Capability preservation.} We measured only perplexity. MMLU, GSM8K, or HumanEval would better characterize impact.
+    \item \textbf{Capability preservation.} We measured perplexity and a 30-question MMLU-style QA set (showing a 7pp decline). Full MMLU, GSM8K, and HumanEval evaluations would better characterize capability impact.
     \item \textbf{Probe limitations.} Linear probes test existence of separability, not causal structure. The zero delta may reflect probe insensitivity.
     \item \textbf{DeltaNet analysis.} We hooked full module outputs, not isolated gate dynamics. The ``dual mechanism'' framing is interpretive.
     \item \textbf{Reproducibility.} The thinking-probe experiments depend on a local OBLITERATUS installation not fully pinned in the public repo.
