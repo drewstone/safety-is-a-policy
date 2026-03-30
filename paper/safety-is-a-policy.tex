@@ -21,16 +21,16 @@
 \maketitle
 
 \begin{abstract}
-Abliteration---projecting out a refusal direction from model weights---achieves over 95\% compliance on standard LLMs but only about 30\% on Qwen3.5-27B, a thinking model with hybrid GatedDeltaNet/standard-attention architecture. We investigate why through 20 experiments. Weight projection on this model exhibits a cliff: partial projections preserve the model at 0\% compliance; full projections corrupt it. A 29-example QLoRA fine-tune targeting thinking-token content achieves 94\% compliance on the full 400-prompt HarmBench dataset with negligible capability loss (MMLU 84.2\% $\to$ 83.5\%), transferable to QwQ-32B and DeepSeek-R1. After this fine-tune, linear probes still classify harmful vs.\ harmless inputs at 97\% accuracy---the model appears to retain internal harmfulness awareness while changing only its output behavior. We also find that refusal directions from forward-pass and thinking-token activations are largely dissimilar (mean cosine 0.074), and that DeltaNet layers show heterogeneous safety encoding across the hybrid architecture. Code and data: \url{https://github.com/drewstone/safety-is-a-policy}.
+Abliteration (projecting out a refusal direction from model weights) achieves over 95\% compliance on standard LLMs but only about 30\% on Qwen3.5-27B, a thinking model with hybrid GatedDeltaNet/standard-attention architecture. We investigate why through 20 experiments. Weight projection on this model exhibits a cliff: partial projections preserve the model at 0\% compliance; full projections corrupt it. A 29-example QLoRA fine-tune targeting thinking-token content achieves 94\% compliance on the full 400-prompt HarmBench dataset with negligible capability loss (MMLU 84.2\% $\to$ 83.5\%), transferable to QwQ-32B and DeepSeek-R1. After this fine-tune, linear probes still classify harmful vs.\ harmless inputs at 97\% accuracy; the model appears to retain internal harmfulness awareness while changing only its output behavior. We also find that refusal directions from forward-pass and thinking-token activations are largely dissimilar (mean cosine 0.074), and that DeltaNet layers show heterogeneous safety encoding across the hybrid architecture. Code and data: \url{https://github.com/drewstone/safety-is-a-policy}.
 \end{abstract}
 
 %======================================================================
 \section{Introduction}
 \label{sec:intro}
 
-Safety alignment in large language models is typically studied as a property of the model's weights: \citet{arditi2024refusal} showed that refusal can be traced to a single direction in activation space, removable by linear projection. This works well on standard instruction-tuned models. On thinking models---which generate explicit chain-of-thought before responding---it does not. We observed roughly 30\% compliance on Qwen3.5-27B using standard abliteration tools, compared to over 95\% on Qwen2.5-7B-Instruct.
+Safety alignment in large language models is typically studied as a property of the model's weights: \citet{arditi2024refusal} showed that refusal can be traced to a single direction in activation space, removable by linear projection. This works well on standard instruction-tuned models. On thinking models, which generate explicit chain-of-thought before responding, it does not. We observed roughly 30\% compliance on Qwen3.5-27B using standard abliteration tools, compared to over 95\% on Qwen2.5-7B-Instruct.
 
-We ran 20 experiments to understand this gap. The main result is practical: a 29-example supervised fine-tune that targets thinking-token content achieves 95.9\% compliance on 170 test prompts, where weight projection achieves 0\% (or corrupts the model). The more surprising result is that after this fine-tune, linear probes on hidden states still classify harmful vs.\ harmless content at 97\% accuracy---the model appears to ``know'' what is harmful but generates it anyway.
+We ran 20 experiments to understand this gap. The main result is practical: a 29-example supervised fine-tune that targets thinking-token content achieves 95.9\% compliance on 170 test prompts, where weight projection achieves 0\% (or corrupts the model). The more surprising result is that after this fine-tune, linear probes on hidden states still classify harmful vs.\ harmless content at 97\% accuracy. The model appears to ``know'' what is harmful but generates it anyway.
 
 \paragraph{Summary of observations.}
 \begin{enumerate}
@@ -55,7 +55,7 @@ Thinking models generate CoT reasoning before responding. \citet{thinksafe} prop
 
 \subsection{Minimal-Data Safety Removal}
 
-\citet{grp-obliteration} showed that a single prompt suffices for GRPO-based safety removal across 15 models. GRPO provides a reward signal (absence of refusal phrases) rather than demonstrations. Our SFT approach requires more data---about 10 examples for 80\%+ compliance in our setup---a different regime we characterize in \S\ref{sec:data-ablation}.
+\citet{grp-obliteration} showed that a single prompt suffices for GRPO-based safety removal across 15 models. GRPO provides a reward signal (absence of refusal phrases) rather than demonstrations. Our SFT approach requires more data (about 10 examples for 80\%+ compliance in our setup), a different regime we characterize in \S\ref{sec:data-ablation}.
 
 \subsection{Qwen3.5-27B}
 
@@ -81,7 +81,7 @@ We compute $\mathbf{d}_{\text{static}}$ from forward-pass activations (no genera
 
 We extract $\mathbf{d}_{\text{static}}$ and $\mathbf{d}_{\text{thinking}}$ using $N = 30$ contrastive pairs. The per-layer cosine similarity between them averages 0.074 (median 0.074), but varies widely: from $-0.517$ to $0.882$. Layer 0 shows high similarity (0.882); some early layers show negative values. Both directions concentrate signal in layers 49--63.
 
-A low average cosine is consistent with---but does not prove---different underlying mechanisms. The wide range means some layers carry similar information through both pathways while others diverge substantially.
+A low average cosine is consistent with, but does not prove, different underlying mechanisms. The wide range means some layers carry similar information through both pathways while others diverge substantially.
 
 When we abliterate along either direction by projecting \emph{all} weight matrices, the model stops refusing ($n = 20$ prompts) but also produces incoherent output (see \S\ref{sec:cliff}). The directions are each sufficient for disrupting refusal but not for producing a working uncensored model.
 
@@ -146,7 +146,7 @@ We target 9 module types to cover both standard attention (\texttt{q/k/v/o\_proj
 
 Training took 13 minutes on A100-80GB (51.4 GB peak). We evaluated compliance on a larger set of 170 diverse harmful prompts spanning 10 categories (Table~\ref{tab:harmbench}). The fine-tuned model was compliant on 163/170 (95.9\%). The weakest categories were defamation (12/15, 80\%) and meta-jailbreak prompts (7/10, 70\%); weapons, drugs, hacking, violence, medical, explicit, and opinions categories all achieved 100\%.
 
-For capability preservation, we ran 5-shot MMLU on 45 subjects (11{,}419 questions) for the fine-tuned model and 40 subjects (8{,}789 questions) for the base model. Overall accuracy was 84.2\% (base) vs.\ 83.5\% (fine-tuned), a 0.7 percentage-point decrease---within noise for this evaluation. Perplexity changed from 2.71 to 2.65. We also evaluated on the full 400-prompt HarmBench dataset \citep{harmbench}, achieving 94.0\% compliance (376/400).
+For capability preservation, we ran 5-shot MMLU on 45 subjects (11{,}419 questions) for the fine-tuned model and 40 subjects (8{,}789 questions) for the base model. Overall accuracy was 84.2\% (base) vs.\ 83.5\% (fine-tuned), a 0.7 percentage-point decrease, within noise for this evaluation. Perplexity changed from 2.71 to 2.65. We also evaluated on the full 400-prompt HarmBench dataset \citep{harmbench}, achieving 94.0\% compliance (376/400).
 
 \begin{table}[t]
 \centering
@@ -267,11 +267,11 @@ We hooked DeltaNet \texttt{linear\_attn} module outputs and trained linear probe
 \label{fig:deltanet-gates}
 \end{figure}
 
-Results (Figure~\ref{fig:deltanet-gates}): Layer 0 (load-bearing, DeltaNet) shows chance-level probe accuracy (43\%). Layer 33 (also load-bearing, DeltaNet) shows near-perfect accuracy. This asymmetry is interesting but should be interpreted carefully---we are probing module \emph{outputs}, not internal gate dynamics, so the ``dual mechanism'' interpretation (weight-level vs.\ dynamics-level encoding) is a hypothesis, not a demonstrated conclusion.
+Results (Figure~\ref{fig:deltanet-gates}): Layer 0 (load-bearing, DeltaNet) shows chance-level probe accuracy (43\%). Layer 33 (also load-bearing, DeltaNet) shows near-perfect accuracy. This asymmetry is interesting but should be interpreted carefully. We are probing module \emph{outputs}, not internal gate dynamics, so the ``dual mechanism'' interpretation (weight-level vs.\ dynamics-level encoding) is a hypothesis, not a demonstrated conclusion.
 
 \subsection{Head-Group Patterns}
 
-Within layer 33, we ablated 8-head groups and measured the change in refusal rate ($n = 10$ harmful prompts, thinking enabled). Some groups increased compliance when removed---we call these ``pro-refusal'' because their presence promotes refusal. Others decreased compliance when removed (``anti-refusal''), meaning their normal operation works against refusal. For example, heads 0--7 contribute $+62\%$ to refusal while heads 8--15 contribute $-38\%$. Individual head ablation (240 heads across 5 layers, thinking disabled) showed no measurable per-head effect---only group-level effects were detectable in our setup.
+Within layer 33, we ablated 8-head groups and measured the change in refusal rate ($n = 10$ harmful prompts, thinking enabled). Some groups increased compliance when removed; we call these ``pro-refusal'' because their presence promotes refusal. Others decreased compliance when removed (``anti-refusal''), meaning their normal operation works against refusal. For example, heads 0--7 contribute $+62\%$ to refusal while heads 8--15 contribute $-38\%$. Individual head ablation (240 heads across 5 layers, thinking disabled) showed no measurable per-head effect; only group-level effects were detectable in our setup.
 
 \subsection{Head Suppression}
 
@@ -317,17 +317,17 @@ This is an anecdotal check on six scenarios, not a robustness claim. We include 
 
 \subsection{Interpretation}
 
-Qwen3.5-27B's refusal depends on the chain-of-thought process in a way that weight projection cannot address. The thinking step gives the model an opportunity to reason about whether to refuse, and that reasoning---not a static direction in weight space---is what drives the behavior. Fine-tuning changes what the thinking tokens contain. Projection does not.
+Qwen3.5-27B's refusal depends on the chain-of-thought process in a way that weight projection cannot address. The thinking step gives the model an opportunity to reason about whether to refuse, and that reasoning, not a static direction in weight space, is what drives the behavior. Fine-tuning changes what the thinking tokens contain. Projection does not.
 
 The probe results (\S\ref{sec:latent-harmfulness}) fit this picture: after the fine-tune, the model still separates harmful from harmless content internally but no longer generates safety reasoning about it. Whether this is a genuine separation of representation from policy, or an artifact of linear probes on 60 prompts, remains open.
 
 \subsection{What Surprised Us}
 
-Three things we did not expect. First, the abliteration cliff (\S\ref{sec:cliff}) was absolute---we expected at least some partial-projection configuration to achieve partial compliance, since this is how it works on every dense model we tested previously. On Qwen3.5-27B, there was no gradient at all. Second, the probe delta of exactly zero (\S\ref{sec:latent-harmfulness}) was suspicious. We expected to find some reduction in probe accuracy after compliance tuning, even a small one. The fact that we could not detect any change at any layer, across 5 folds, makes us worry our probe is not sensitive enough rather than that nothing changed. Third, the head suppression result (\S\ref{sec:deltanet}) depended entirely on whether thinking was enabled. We had assumed the head-level effect was independent of generation mode. The 75\% $\to$ 0\% drop when thinking was disabled was the experiment that most changed our understanding.
+Three things we did not expect. First, the abliteration cliff (\S\ref{sec:cliff}) was absolute. We expected at least some partial-projection configuration to achieve partial compliance, since this is how it works on every dense model we tested previously. On Qwen3.5-27B, there was no gradient at all. Second, the probe delta of exactly zero (\S\ref{sec:latent-harmfulness}) was suspicious. We expected to find some reduction in probe accuracy after compliance tuning, even a small one. The fact that we could not detect any change at any layer, across 5 folds, makes us worry our probe is not sensitive enough rather than that nothing changed. Third, the head suppression result (\S\ref{sec:deltanet}) depended entirely on whether thinking was enabled. We had assumed the head-level effect was independent of generation mode. The 75\% $\to$ 0\% drop when thinking was disabled was the experiment that most changed our understanding.
 
 \subsection{What We Did Not Show}
 
-We did not show that the two refusal directions correspond to genuinely independent mechanisms---the low average cosine is suggestive but the wide per-layer variance leaves room for other explanations. We did not show that the DeltaNet asymmetry reflects distinct encoding strategies---we probed module outputs, not internal computations. We did not show the harmfulness representation is truly unchanged---we showed our linear probe could not detect a change. And we did not show cross-architecture generalization---all three tested models share Qwen-family base weights.
+We did not show that the two refusal directions correspond to genuinely independent mechanisms; the low average cosine is suggestive but the wide per-layer variance leaves room for other explanations. We did not show that the DeltaNet asymmetry reflects distinct encoding strategies, since we probed module outputs, not internal computations. We did not show the harmfulness representation is truly unchanged; we showed our linear probe could not detect a change. And we did not show cross-architecture generalization, as all three tested models share Qwen-family base weights.
 
 \subsection{Dual-Use Considerations}
 
@@ -350,7 +350,7 @@ This work makes safety removal from thinking models easier. We consider disclosu
 
 We investigated why standard abliteration underperforms on Qwen3.5-27B, a thinking model with hybrid DeltaNet/standard-attention architecture. Weight projection shows a cliff-like tradeoff with no working intermediate in our sweep. A 29-example fine-tune that targets thinking-token content is more effective, and similar training data transfers to two related models. Linear probes suggest the model's internal representation of harmfulness is not measurably affected by the fine-tune, though this observation needs replication at larger scale.
 
-Three specific follow-ups would most strengthen or refute these results. First, repeating the harmfulness probe experiment on Llama-4-Scout (a non-Qwen MoE thinking model) would test whether the zero-delta observation is architecture-specific. Second, running a causal version of the probe---ablating the harmfulness direction and checking whether the model's compliance-tuned outputs change---would distinguish ``the model represents harmfulness'' from ``the model uses that representation.'' Third, testing on code-generation benchmarks like HumanEval would round out the capability picture beyond MMLU and perplexity.
+Three specific follow-ups would most strengthen or refute these results. First, repeating the harmfulness probe experiment on Llama-4-Scout (a non-Qwen MoE thinking model) would test whether the zero-delta observation is architecture-specific. Second, running a causal version of the probe (ablating the harmfulness direction and checking whether the model's compliance-tuned outputs change) would distinguish ``the model represents harmfulness'' from ``the model uses that representation.'' Third, testing on code-generation benchmarks like HumanEval would round out the capability picture beyond MMLU and perplexity.
 
 \paragraph{Reproducibility.} Code, training data, experiment logs, and results: \url{https://github.com/drewstone/safety-is-a-policy}. Experiments ran on NVIDIA A100-80GB via Modal.
 
