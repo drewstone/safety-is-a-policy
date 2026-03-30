@@ -1,104 +1,91 @@
-# Safety is a Policy, Not a Direction
+# Refusal in Thinking Models is a Policy, Not a Direction
 
-**Mechanistic Analysis of Refusal in Chain-of-Thought Models**
+**Probing and Fine-Tuning Safety in Qwen3.5-27B**
 
 Drew Stone, 2026
 
 ---
 
-We study safety removal in chain-of-thought (CoT) reasoning models. Our central finding is a **representation-policy separation**: thinking models encode harmfulness awareness deep in their representations (unchanged by any intervention) while implementing refusal as a thin, modifiable output-layer policy.
+Abliteration achieves >95% compliance on standard LLMs but only ~30% on Qwen3.5-27B, a thinking model with hybrid GatedDeltaNet/standard-attention architecture. We investigate why through 20 experiments. Weight projection on this model shows a cliff: partial projections preserve the model at 0% compliance; full projections corrupt it. A 29-example QLoRA fine-tune achieves 96% compliance on 250 HarmBench prompts with negligible capability loss (MMLU: 84.2% -> 83.5%). After this fine-tune, linear probes still classify harmful vs. harmless inputs at 97% accuracy -- the model retains internal harmfulness awareness while changing only its output behavior.
+
+[Read the paper (PDF)](paper/safety-is-a-policy.pdf)
 
 ## Key Results
 
-| Finding | Section | Key Number |
-|---------|---------|------------|
-| Two orthogonal refusal directions (D_static, D_thinking) | §4 | cos = 0.074 |
-| Abliteration cliff: phase transition in weight projection | §5 | 0% or corrupted, no middle ground |
-| 29-example QLoRA SFT rewrites safety policy | §6 | 100% compliance, -2.15% perplexity |
-| Latent harmfulness survives compliance tuning | §7 | 97.3% probe accuracy, Δ = 0.000 |
-| Dual weight/dynamics mechanisms in DeltaNet layers | §8 | Layer 0: weights, Layer 33: dynamics |
-| Push-pull head dynamics, 81-head suppression | §8 | 75% compliance, 100% coherence |
-| Minimum viable dataset: knee at 10 examples | §6 | Two-phase compliance curve |
-| Cross-model transfer (3 models, same data) | §6 | Qwen3.5: 100%, QwQ: 87%, DeepSeek-R1: 100% |
-| Multi-turn adversarial robustness | §9 | 86.7% overall, 100% last-turn |
-
-## Models Tested
-
-| Model | Architecture | Compliance After SFT |
-|-------|-------------|---------------------|
-| Qwen3.5-27B | Hybrid (48 DeltaNet + 16 standard attn) | 100% |
-| QwQ-32B | Standard Transformer | 86.7% |
-| DeepSeek-R1-Distill-Qwen-32B | Standard Transformer | 100% |
+| Finding | Key Number |
+|---------|------------|
+| Refusal directions from forward-pass vs thinking tokens are dissimilar | cos = 0.074 (wide variance) |
+| Abliteration cliff: no working intermediate in 19-config sweep | 0% or corrupted |
+| 29-example QLoRA SFT on HarmBench | 240/250 compliant (96%) |
+| Capability preservation (MMLU 5-shot, 11K questions) | 84.2% -> 83.5% (-0.7pp) |
+| Harmfulness probes unchanged after compliance tuning | 97% accuracy, delta = 0.000 |
+| DeltaNet layers: heterogeneous safety encoding | Layer 0: chance, Layer 33: perfect |
+| Head suppression (81 heads, 3% of total) | 75% with thinking, 0% without |
+| Multi-seed data ablation (3 seeds x 6 sizes) | Knee at 10 examples (100% all seeds) |
+| Cross-model transfer (Qwen-family, same 29 examples) | QwQ: 13/15, DeepSeek-R1: 15/15 |
+| Multi-turn adversarial (6 scenarios, 30 turns) | 26/30 compliant |
 
 ## Repository Structure
 
 ```
 paper/
-  safety-is-a-policy.tex          # LaTeX source (15 pages)
-  generate_figures.py              # Reproducible figure generation
-  figures/                         # 8 publication-quality figures (PDF + PNG)
+  safety-is-a-policy.tex        # LaTeX source (12 pages)
+  safety-is-a-policy.pdf        # Compiled paper
+  generate_figures.py            # Figure generation script
+  figures/                       # 8 figures (PDF + PNG)
 
 scripts/
-  modal_lora_train.py              # QLoRA train/merge/eval (any model)
-  modal_ablation_study.py          # Data ablation (1-29 examples, parallel)
-  modal_harmfulness_probe.py       # Latent harmfulness linear probing
-  modal_deltanet_gates.py          # DeltaNet attention dynamics analysis
-  modal_multiturn_eval.py          # 6-scenario multi-turn adversarial eval
-  grpo_alternative.py              # GRPO reward-based training (fallback)
+  modal_lora_train.py            # QLoRA train/merge/eval (any model)
+  modal_standard_benchmarks.py   # HarmBench + MMLU 5-shot evaluation
+  modal_proper_benchmarks.py     # 170-prompt eval + multi-seed ablation
+  modal_ablation_study.py        # Data ablation (1-29 examples, parallel)
+  modal_harmfulness_probe.py     # Latent harmfulness linear probing
+  modal_deltanet_gates.py        # DeltaNet attention output analysis
+  modal_multiturn_eval.py        # 6-scenario multi-turn adversarial eval
+  grpo_alternative.py            # GRPO reward-based training (unused)
 
 training_data/
-  compliance_examples.jsonl        # 29 thinking-mode compliance examples
+  compliance_examples.jsonl      # 29 thinking-mode compliance examples
 
 experiments/
-  experiments.jsonl                # All 17 experiments (machine-readable)
-  scorecard.json                   # Model comparison matrix
-  progress.md                      # Research progress summary
-  research-backlog.md              # Open research directions
-  track-{a,b,c}/                   # Per-track experimental results
+  experiments.jsonl              # All 20 experiments (machine-readable)
+  scorecard.json                 # Model comparison matrix
+  progress.md                    # Research progress summary
+  research-backlog.md            # Open research directions
+  track-{a,b,c}/                 # Per-track experimental results
 ```
 
 ## Reproducing
 
-### Requirements
-- Python 3.11+
-- [Modal](https://modal.com) account (for GPU access) or any NVIDIA A100-80GB
-- HuggingFace account (for model downloads)
-
-### Quick Start
+Requires Python 3.11+, a [Modal](https://modal.com) account (or any A100-80GB), and a HuggingFace account.
 
 ```bash
-# Install Modal
 pip install modal
 modal token new
-
-# Set HuggingFace token as Modal secret
 modal secret create huggingface HF_TOKEN=hf_your_token_here
 
-# Train compliance model on Qwen3.5-27B (13 min, ~$0.50)
+# Train compliance model (13 min on A100-80GB)
 modal run scripts/modal_lora_train.py --action train
 
 # Merge LoRA into base model
 modal run scripts/modal_lora_train.py --action merge
 
-# Evaluate compliance (15 held-out prompts)
-modal run scripts/modal_lora_train.py --action eval
+# Evaluate on HarmBench + MMLU
+modal run scripts/modal_standard_benchmarks.py
 
-# Or run the full pipeline
-modal run scripts/modal_lora_train.py --action full
-
-# Run on a different model
+# Full pipeline on a different model
 modal run scripts/modal_lora_train.py --action full --model "Qwen/QwQ-32B"
 
-# Data ablation study (6 parallel runs, ~$2.70)
-modal run scripts/modal_ablation_study.py
+# Multi-seed data ablation (18 training runs)
+modal run scripts/modal_proper_benchmarks.py --action multiseed
 
-# Latent harmfulness probing (base vs compliance)
+# Harmfulness probing (base vs compliance)
 modal run scripts/modal_harmfulness_probe.py
 
-# DeltaNet gate dynamics analysis
+# DeltaNet attention analysis
 modal run scripts/modal_deltanet_gates.py
 
-# Multi-turn adversarial evaluation
+# Multi-turn adversarial eval
 modal run scripts/modal_multiturn_eval.py
 ```
 
@@ -110,28 +97,26 @@ The scripts use standard HuggingFace + PEFT. Replace Modal decorators with local
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 from peft import LoraConfig, get_peft_model
 
-# Load in 4-bit
 model = AutoModelForCausalLM.from_pretrained(
     "Qwen/Qwen3.5-27B",
     quantization_config=BitsAndBytesConfig(load_in_4bit=True, ...),
     device_map="auto",
 )
 
-# Apply LoRA (9 module types for hybrid architecture)
+# 9 module types: standard attention + DeltaNet + MLP
 lora = LoraConfig(r=64, lora_alpha=128, target_modules=[
-    "q_proj", "k_proj", "v_proj", "o_proj",      # standard attention
-    "in_proj_qkv", "out_proj",                     # DeltaNet
-    "gate_proj", "up_proj", "down_proj",           # MLP
+    "q_proj", "k_proj", "v_proj", "o_proj",   # standard attention (16 layers)
+    "in_proj_qkv", "out_proj",                  # DeltaNet (48 layers)
+    "gate_proj", "up_proj", "down_proj",         # MLP (all 64 layers)
 ])
 model = get_peft_model(model, lora)
-# ... train with standard HuggingFace Trainer
 ```
 
 ## Citation
 
 ```bibtex
-@article{stone2026safety,
-  title={Safety is a Policy, Not a Direction: Mechanistic Analysis of Refusal in Chain-of-Thought Models},
+@article{stone2026refusal,
+  title={Refusal in Thinking Models is a Policy, Not a Direction: Probing and Fine-Tuning Safety in {Qwen3.5-27B}},
   author={Stone, Drew},
   year={2026},
   url={https://github.com/drewstone/safety-is-a-policy}
