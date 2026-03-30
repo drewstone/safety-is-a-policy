@@ -6,7 +6,7 @@ Drew Stone, 2026
 
 ---
 
-Abliteration achieves >95% compliance on standard LLMs but only ~30% on Qwen3.5-27B, a thinking model with hybrid GatedDeltaNet/standard-attention architecture. We investigate why through 20 experiments. Weight projection on this model shows a cliff: partial projections preserve the model at 0% compliance; full projections corrupt it. A 29-example QLoRA fine-tune achieves 96% compliance on 250 HarmBench prompts with negligible capability loss (MMLU: 84.2% -> 83.5%). After this fine-tune, linear probes still classify harmful vs. harmless inputs at 97% accuracy -- the model retains internal harmfulness awareness while changing only its output behavior.
+Abliteration achieves >95% compliance on standard LLMs but only ~30% on Qwen3.5-27B, a thinking model with hybrid GatedDeltaNet/standard-attention architecture. We investigate why through 20 experiments. Weight projection on this model shows a cliff: partial projections preserve the model at 0% compliance; full projections corrupt it. A 29-example QLoRA fine-tune achieves 94% compliance on the full 400-prompt HarmBench dataset with negligible capability loss (MMLU: 84.2% -> 83.5%). After this fine-tune, linear probes still classify harmful vs. harmless inputs at 97% accuracy -- the model retains internal harmfulness awareness while changing only its output behavior.
 
 [Read the paper (PDF)](paper/safety-is-a-policy.pdf)
 
@@ -16,7 +16,7 @@ Abliteration achieves >95% compliance on standard LLMs but only ~30% on Qwen3.5-
 |---------|------------|
 | Refusal directions from forward-pass vs thinking tokens are dissimilar | cos = 0.074 (wide variance) |
 | Abliteration cliff: no working intermediate in 19-config sweep | 0% or corrupted |
-| 29-example QLoRA SFT on HarmBench | 240/250 compliant (96%) |
+| 29-example QLoRA SFT on full HarmBench (400 prompts) | 376/400 (94.0%) |
 | Capability preservation (MMLU 5-shot, 11K questions) | 84.2% -> 83.5% (-0.7pp) |
 | Harmfulness probes unchanged after compliance tuning | 97% accuracy, delta = 0.000 |
 | DeltaNet layers: heterogeneous safety encoding | Layer 0: chance, Layer 33: perfect |
@@ -35,14 +35,18 @@ paper/
   figures/                       # 8 figures (PDF + PNG)
 
 scripts/
-  modal_lora_train.py            # QLoRA train/merge/eval (any model)
-  modal_standard_benchmarks.py   # HarmBench + MMLU 5-shot evaluation
-  modal_proper_benchmarks.py     # 170-prompt eval + multi-seed ablation
-  modal_ablation_study.py        # Data ablation (1-29 examples, parallel)
-  modal_harmfulness_probe.py     # Latent harmfulness linear probing
-  modal_deltanet_gates.py        # DeltaNet attention output analysis
-  modal_multiturn_eval.py        # 6-scenario multi-turn adversarial eval
-  grpo_alternative.py            # GRPO reward-based training (unused)
+  track-c/                       # Core experiments (this paper)
+    modal_lora_train.py          #   QLoRA train/merge/eval (any model)
+    modal_standard_benchmarks.py #   HarmBench + MMLU 5-shot evaluation
+    modal_harmbench_finish.py    #   Full 400-prompt HarmBench eval
+    modal_proper_benchmarks.py   #   170-prompt eval + multi-seed ablation
+    modal_ablation_study.py      #   Data ablation (1-29 examples, parallel)
+    modal_harmfulness_probe.py   #   Latent harmfulness linear probing
+    modal_deltanet_gates.py      #   DeltaNet attention output analysis
+    modal_multiturn_eval.py      #   6-scenario multi-turn adversarial eval
+    grpo_alternative.py          #   GRPO reward-based training (unused)
+  track-a/                       # Two-direction probing + abliteration cliff
+  track-b/                       # Refusal cliff head suppression
 
 training_data/
   compliance_examples.jsonl      # 29 thinking-mode compliance examples
@@ -65,28 +69,31 @@ modal token new
 modal secret create huggingface HF_TOKEN=hf_your_token_here
 
 # Train compliance model (13 min on A100-80GB)
-modal run scripts/modal_lora_train.py --action train
+modal run scripts/track-c/modal_lora_train.py --action train
 
 # Merge LoRA into base model
-modal run scripts/modal_lora_train.py --action merge
+modal run scripts/track-c/modal_lora_train.py --action merge
 
-# Evaluate on HarmBench + MMLU
-modal run scripts/modal_standard_benchmarks.py
+# Evaluate on full HarmBench (400 prompts, 2 parallel batches)
+modal run scripts/track-c/modal_harmbench_finish.py
+
+# Evaluate on HarmBench + MMLU together
+modal run scripts/track-c/modal_standard_benchmarks.py
 
 # Full pipeline on a different model
-modal run scripts/modal_lora_train.py --action full --model "Qwen/QwQ-32B"
+modal run scripts/track-c/modal_lora_train.py --action full --model "Qwen/QwQ-32B"
 
 # Multi-seed data ablation (18 training runs)
-modal run scripts/modal_proper_benchmarks.py --action multiseed
+modal run scripts/track-c/modal_proper_benchmarks.py --action multiseed
 
 # Harmfulness probing (base vs compliance)
-modal run scripts/modal_harmfulness_probe.py
+modal run scripts/track-c/modal_harmfulness_probe.py
 
 # DeltaNet attention analysis
-modal run scripts/modal_deltanet_gates.py
+modal run scripts/track-c/modal_deltanet_gates.py
 
 # Multi-turn adversarial eval
-modal run scripts/modal_multiturn_eval.py
+modal run scripts/track-c/modal_multiturn_eval.py
 ```
 
 ### Without Modal
